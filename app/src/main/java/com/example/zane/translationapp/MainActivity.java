@@ -1,17 +1,25 @@
 package com.example.zane.translationapp;
 
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.os.AsyncTask;
+import android.speech.RecognizerIntent;
+import android.speech.tts.TextToSpeech;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.w3c.dom.Text;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
@@ -22,16 +30,64 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
+import java.util.Locale;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
 
     EditText translateEditText;
+    private Locale currentSpokenLang = Locale.US;
+
+
+    private Locale locSpanish = new Locale("es", "MX");
+    private Locale locRussian = new Locale("ru", "RU");
+    private Locale locPortuguese = new Locale("pt", "BR");
+    private Locale locDutch = new Locale("nl", "NL");
+    private Locale[] languages = {locDutch, Locale.FRENCH, Locale.GERMAN, Locale.ITALIAN,
+                                    locPortuguese, locRussian, locSpanish};
+
+
+    private TextToSpeech textToSpeech;
+
+    private Spinner languageSpinner;
+
+    private int spinnerIndex = 0;
+
+    private String[] arrayOfTranslations;
+
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        languageSpinner = (Spinner) findViewById(R.id.language_spinner);
+
+        languageSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                currentSpokenLang = languages[i];
+
+                spinnerIndex = i;
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+
+            }
+        });
+
+        textToSpeech = new TextToSpeech(this, this);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if(textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+        super.onDestroy();
     }
 
     public void onTranslateClick(View view) {
@@ -54,6 +110,33 @@ public class MainActivity extends AppCompatActivity {
         return editText.getText().toString().trim().length() == 0;
 
     }
+
+    @Override
+    public void onInit(int status) {
+        if(status == TextToSpeech.SUCCESS) {
+            int result = textToSpeech.setLanguage(currentSpokenLang);
+
+            if(result == TextToSpeech.LANG_MISSING_DATA || result ==TextToSpeech.LANG_NOT_SUPPORTED) {
+                Toast.makeText(this, "Language Not Supported", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this, "Text to Speech Failed", Toast.LENGTH_SHORT).show();
+
+        }
+    }
+
+    public void readTheText(View view) {
+        textToSpeech.setLanguage(currentSpokenLang);
+
+        if(arrayOfTranslations.length >= 9) {
+            textToSpeech.speak(arrayOfTranslations[spinnerIndex+4],
+                    TextToSpeech.QUEUE_FLUSH, null);
+        } else {
+            Toast.makeText(this, "Translate Text First", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+
 
     class SaveFeed extends AsyncTask<Void, Void, Void> {
 
@@ -132,6 +215,12 @@ public class MainActivity extends AppCompatActivity {
 
             TextView translationTextView = (TextView) findViewById(R.id.translationTextView);
 
+            translationTextView.setMovementMethod(new ScrollingMovementMethod());
+
+            String stringOfTranslations = textViewString.replaceAll("\\w+\\s:", "#");
+
+            arrayOfTranslations = stringOfTranslations.split("#");
+
             translationTextView.setText(textViewString);
         }
 
@@ -149,6 +238,36 @@ public class MainActivity extends AppCompatActivity {
             } catch (JSONException e) {
                 e.printStackTrace();
             }
+        }
+
+    }
+    public void ExceptSpeechInput(View view) {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,
+                Locale.getDefault());
+
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT,
+                getString(R.string.speech_input_phase));
+
+        try{
+            startActivityForResult(intent, 100);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, getString(R.string.stt_not_supported_message), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    protected void onActivityResult(int requestCode, int resultCode, Intent data){
+
+        if((requestCode == 100 ) && (data != null) && (resultCode == RESULT_OK)) {
+            ArrayList<String> spokenText = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+
+            EditText wordsEntered = (EditText) findViewById(R.id.editText);
+
+            wordsEntered.setText(spokenText.get(0));
         }
     }
 }
