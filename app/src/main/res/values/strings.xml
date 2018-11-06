@@ -1,4 +1,18 @@
 <resources>
     <string name="app_name">TranslationApp</string>
     <string name="translation_text_view">Enter phrase for translation!</string>
+    <string name="speech_input_phase">Say the Phrase</string>
+    <string name="stt_not_supported_message">Your device does not support Speech</string>
+
+    <string-array name="language_array">
+
+        <item>Dutch</item>
+        <item>French</item>
+        <item>German</item>
+        <item>Italian</item>
+        <item>Portuguese</item>
+        <item>Russian</item>
+        <item>Spanish</item>
+
+    </string-array>
 </resources>
